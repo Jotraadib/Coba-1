@@ -1,0 +1,128 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// Inisialisasi tampilan LCD I2C (alamat 0x27 dan ukuran 16x2)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Tombol untuk mengontrol countdown
+const int buttonStart = 3;  // Tombol Start
+const int buttonPause = 4;  // Tombol Pause
+const int buttonStop = 5;   // Tombol Stop
+const int buttonReset = 6;  // Tombol Reset
+
+int initialHours = 0;      // Waktu awal dalam jam
+int initialMinutes = 1;    // Waktu awal dalam menit
+int initialSeconds = 30;   // Waktu awal dalam detik
+int hours = initialHours;
+int minutes = initialMinutes;
+int seconds = initialSeconds;
+
+unsigned long previousMillis = 0;
+bool countdownActive = false;
+bool countdownPaused = false;
+
+void setup() {
+  // Inisialisasi serial dan tampilan LCD
+  Serial.begin(115200);
+  lcd.begin();
+  lcd.backlight();
+
+  // Menampilkan pesan awal
+  lcd.setCursor(0, 0);
+  lcd.print("Countdown Timer");
+
+  // Set tombol sebagai pin I/O
+  pinMode(buttonStart, INPUT_PULLUP);
+  pinMode(buttonPause, INPUT_PULLUP);
+  pinMode(buttonStop, INPUT_PULLUP);
+  pinMode(buttonReset, INPUT_PULLUP);
+
+  // Tampilkan waktu awal di LCD
+  displayTime(hours, minutes, seconds);
+}
+
+void loop() {
+  // Mengecek status tombol
+  if (digitalRead(buttonStart) == LOW) {
+    countdownActive = true;
+    countdownPaused = false;
+    delay(200); // Debounce untuk tombol
+  }
+
+  if (digitalRead(buttonPause) == LOW) {
+    if (countdownActive && !countdownPaused) {
+      countdownPaused = true;
+    } else if (countdownActive && countdownPaused) {
+      countdownPaused = false;
+    }
+    delay(200); // Debounce untuk tombol
+  }
+
+  if (digitalRead(buttonStop) == LOW) {
+    countdownActive = false;
+    countdownPaused = false;
+    hours = initialHours;
+    minutes = initialMinutes;
+    seconds = initialSeconds;
+    displayTime(hours, minutes, seconds);
+    delay(200); // Debounce untuk tombol
+  }
+
+  if (digitalRead(buttonReset) == LOW) {
+    hours = initialHours;
+    minutes = initialMinutes;
+    seconds = initialSeconds;
+    displayTime(hours, minutes, seconds);
+    delay(200); // Debounce untuk tombol
+  }
+
+  // Memperbarui countdown jika aktif dan tidak dipause
+  if (countdownActive && !countdownPaused) {
+    updateCountdown();
+  }
+}
+
+// Fungsi untuk menampilkan waktu dalam format 00:00:00 di LCD
+void displayTime(int hours, int minutes, int seconds) {
+  lcd.setCursor(0, 1);
+  lcd.print("Time: ");
+  if (hours < 10) lcd.print("0");
+  lcd.print(hours);
+  lcd.print(":");
+  if (minutes < 10) lcd.print("0");
+  lcd.print(minutes);
+  lcd.print(":");
+  if (seconds < 10) lcd.print("0");
+  lcd.print(seconds);
+  lcd.print("  ");  // Tambahkan spasi untuk membersihkan sisa karakter
+}
+
+// Fungsi untuk memperbarui countdown
+void updateCountdown() {
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= 1000) {  // Interval 1 detik
+    previousMillis = currentMillis;
+    if (seconds > 0) {
+      seconds--;
+    } else {
+      if (minutes > 0) {
+        minutes--;
+        seconds = 59;
+      } else {
+        if (hours > 0) {
+          hours--;
+          minutes = 59;
+          seconds = 59;
+        } else {
+          // Timer selesai
+          countdownActive = false;
+          lcd.setCursor(0, 1);
+          lcd.print("Time's up!      ");
+          return;
+        }
+      }
+    }
+    // Tampilkan waktu tersisa di LCD
+    displayTime(hours, minutes, seconds);
+  }
+}
